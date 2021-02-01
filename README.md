@@ -1,0 +1,1 @@
+# sequelize typescript migration engine
