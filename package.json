@@ -27,6 +27,7 @@
     "eslint-plugin-unicorn": "^22.0.0",
     "jest": "^26.4.2",
     "microbundle": "^0.12.0",
+    "pg": "^8.5.1",
     "prettier": "^2.0.4",
     "ts-jest": "^26.3.0",
     "typescript": "^4.0.3"
@@ -34,7 +35,8 @@
   "scripts": {
     "build": "microbundle -o dist/ --sourcemap false --compress false",
     "dev": "microbundle watch -o dist/ --sourcemap false --compress false",
-    "test": "jest --coverage",
+    "test": "jest --coverage --rootDir src",
+    "testapp": "jest --coverage --rootDir testapp",
     "lint": "eslint --ext .js,.jsx,.ts,.tsx ."
   },
   "repository": {

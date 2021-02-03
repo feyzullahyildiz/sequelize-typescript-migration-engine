@@ -25,7 +25,7 @@ const getMigrationTableClass = (sequelize: Sequelize) => {
             type: DataTypes.STRING,
             primaryKey: true
         }
-    }, { sequelize, tableName: 'MIGRATION_VERSION_TABLE' });
+    }, { sequelize, tableName: 'MIGRATION_VERSION_TABLE', timestamps: false });
     return MigrationVersionTable;
 }
 
@@ -52,12 +52,18 @@ export class MigrationVersion {
         }, null, 2)
     }
 }
+type MigrationFileSuffix = '.js' | '.ts' | string;
+interface Options {
+    migrationFileSuffix?: MigrationFileSuffix;
+    eventCallback?: (str: String) => void;
+}
 export class MigratorEngine {
     static async init(sequelize: Sequelize,
         migrationFolder: string,
-        targetMigrationName: string
+        targetMigrationName: string,
+        opt: Options = {}
     ) {
-        const engine = new MigratorEngine(sequelize, migrationFolder, targetMigrationName)
+        const engine = new MigratorEngine(sequelize, migrationFolder, targetMigrationName, opt);
         await engine.init();
         return engine;
     }
@@ -67,14 +73,26 @@ export class MigratorEngine {
     dbState!: DbState;
     queryInterface!: QueryInterface;
     transaction!: Transaction;
+    private migrationFileSuffix: MigrationFileSuffix;
+    public eventCallback?: (str: String) => void;
     constructor(
         public sequelize: Sequelize,
         public migrationFolder: string,
         public targetMigrationName: string,
+        public opt: Options = {}
     ) {
+        this.migrationFileSuffix = opt.migrationFileSuffix || '.ts';
+        if(opt.eventCallback) {
+            this.eventCallback = opt.eventCallback;
+        }
     }
     log = (...msg: any[]) => {
-        console.log(`<<<<<<<<<<<< MIGRATION ENGINE >>>>>>>>>>>> ==>>`, ...msg)
+        if(!this.eventCallback) {
+            return;
+        }
+        for (const m of msg) {
+            this.eventCallback(m);
+        }
     }
     async init() {
         this.MigrationVersionTable = getMigrationTableClass(this.sequelize)
@@ -117,7 +135,7 @@ export class MigratorEngine {
         // nestjs kullandığımız için bu folder aslında dist'in içerisini görüyor.
         // burada da map.js .d.ts .ts gibi dosyalar da var o yüzden burada filter yapıyoruz.
         // main-backend/dist/migration/* içerisinde
-        const files = fs.readdirSync(this.migrationFolder).filter((name: string) => name.endsWith('.js')).sort();
+        const files = fs.readdirSync(this.migrationFolder).filter((name: string) => name.endsWith(this.migrationFileSuffix)).sort();
         this.log('files', files)
         if (files.length === 0) {
             throw new Error(`migration folder is empty`)
@@ -150,7 +168,6 @@ export class MigratorEngine {
                 primaryKey: true,
             }
         }, { transaction })
-        // await queryInterface.createTable()
 
     }
     async getDbState(transaction: Transaction): Promise<DbState> {
@@ -178,14 +195,9 @@ export class MigratorEngine {
         }
     }
     public async getDbMigrations(): Promise<{ name: string }[]> {
-        const queryInterface = this.queryInterface;
         const transaction = this.transaction;
-        const MIGRATION_VERSION_TABLE = this.MigrationVersionTable.tableName;
-        const result = await queryInterface.sequelize.query(`SELECT * FROM "${MIGRATION_VERSION_TABLE}"`, {
-            type: QueryTypes.SELECT,
-            transaction
-        }) as { name: string }[];
-        return result;
+        return await this.MigrationVersionTable.findAll({ where: {}, transaction })
+            .then(arr => arr.map((item) => item.toJSON() as any))
     }
     public async getActiveMigrationInDb(): Promise<MigrationVersion> {
         const migrations = await this.getDbMigrations();
@@ -203,9 +215,6 @@ export class MigratorEngine {
                 throw new Error(`dbMigrations.length 0`)
             }
         }
-        // if (dbMigrations.length === 0) {
-        //     return DbState.DB_IS_GENERATED_VERSION_TABLE_EMPTY
-        // }
         const activeStateInDb = await this.getActiveMigrationInDb()
         this.log('targetMigration NAME', this.targetMigration.pureFileName)
         this.log('activeStateInDb NAME', activeStateInDb.pureFileName)
@@ -232,19 +241,11 @@ export class MigratorEngine {
     }
     public async deleteMigrationFromTable() {
         const transaction = this.transaction;
-        await this.MigrationVersionTable.destroy({ transaction });
-        // await this.queryInterface.sequelize.query(`DELETE FROM "${MIGRATION_VERSION_TABLE}";`, {
-        //     type: QueryTypes.DELETE,
-        //     transaction
-        // });
+        await this.MigrationVersionTable.destroy({ where: {}, transaction });
     }
     public async insertMigrationToTable(migration: MigrationVersion) {
         const transaction = this.transaction;
         await this.MigrationVersionTable.create({ name: migration.pureFileName }, { transaction });
-        // await this.queryInterface.sequelize.query(`INSERT INTO "${MIGRATION_VERSION_TABLE}" VALUES('${migration.pureFileName}')`, {
-        //     type: QueryTypes.INSERT,
-        //     transaction
-        // });
     }
     public async executeMigration(from: MigrationVersion | null, to: MigrationVersion) {
         const transaction = this.transaction;
@@ -253,9 +254,6 @@ export class MigratorEngine {
         }
         const startIndex = this.migrations.indexOf(from);
         const endIndex = this.migrations.indexOf(to);
-        // if (endIndex === startIndex) {
-        //     throw new Error(`startIndex and endIndex equal`)
-        // }
         this.log(`executeMigration endIndex: ${endIndex} startIndex: ${startIndex}`)
         if (endIndex > startIndex) {
             this.log('executeMigration UP started')
@@ -264,6 +262,8 @@ export class MigratorEngine {
                 await m.object.up(this.queryInterface, transaction);
             }
             this.log('executeMigration UP end')
+        } else if (from === to) {
+            await from.object.up(this.queryInterface, transaction);
         } else {
             this.log('executeMigration DOWN started')
             for (let i = endIndex; i <= startIndex; i--) {
@@ -281,7 +281,7 @@ export class MigratorEngine {
         let now = startIndex + 1;
         let next = this.getNextMigrationVersion(from);
         while (endIndex - now >= 0) {
-            this.log('endIndex - now', endIndex - now)
+            // this.log('endIndex - now', endIndex - now)
             await next.object.up(this.queryInterface, this.transaction)
             if (endIndex - now === 0) {
                 return
