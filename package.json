@@ -41,7 +41,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Feyzullah YILDIZ/sequelize-typescript-migration-engine"
+    "url": "git+https://github.com/feyzullahyildiz/sequelize-typescript-migration-engine"
   },
   "keywords": [],
   "jest": {
@@ -58,7 +58,7 @@
   "author": "Feyzullah YILDIZ",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/Feyzullah YILDIZ/sequelize-typescript-migration-engine/issues"
+    "url": "https://github.com/feyzullahyildiz/sequelize-typescript-migration-engine/issues"
   },
-  "homepage": "https://github.com/Feyzullah YILDIZ/sequelize-typescript-migration-engine#readme"
+  "homepage": "https://github.com/feyzullahyildiz/sequelize-typescript-migration-engine#readme"
 }
