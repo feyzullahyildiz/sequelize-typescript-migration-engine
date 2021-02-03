@@ -1,6 +1,6 @@
 {
   "name": "sequelize-typescript-migration-engine",
-  "version": "0.0.1-alpha",
+  "version": "0.0.3-alpha",
   "description": "Typescript based sequelize migration engine",
   "main": "dist/sequelize-typescript-migration-engine.js",
   "umd:main": "dist/sequelize-typescript-migration-engine.umd.js",
