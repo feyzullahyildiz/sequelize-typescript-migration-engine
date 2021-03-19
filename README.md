@@ -43,3 +43,6 @@ const engine = new MigratorEngine(sequelize, migrationFolder, '2021_01_02');
 
 await engine.init();
 ```
+
+
+### Hotfix to create sequelize-typescript-migration-engine.d.ts file 
